@@ -10,6 +10,7 @@ mod diagnostics;
 mod ssr;
 mod lsif;
 mod scip;
+mod regloc;
 
 mod progress_report;
 

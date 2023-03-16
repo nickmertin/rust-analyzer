@@ -15,6 +15,7 @@ pub mod items_locator;
 pub mod label;
 pub mod line_index;
 pub mod path_transform;
+pub mod regloc;
 pub mod rename;
 pub mod rust_doc;
 pub mod search;

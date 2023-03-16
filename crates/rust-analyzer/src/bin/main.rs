@@ -9,6 +9,7 @@ mod rustc_wrapper;
 
 use std::{env, fs, path::Path, process};
 
+use cfg_if::cfg_if;
 use lsp_server::Connection;
 use rust_analyzer::{cli::flags, config::Config, from_json, Result};
 use vfs::AbsPathBuf;
@@ -88,6 +89,16 @@ fn try_main(flags: flags::RustAnalyzer) -> Result<()> {
         flags::RustAnalyzerCmd::Search(cmd) => cmd.run()?,
         flags::RustAnalyzerCmd::Lsif(cmd) => cmd.run()?,
         flags::RustAnalyzerCmd::Scip(cmd) => cmd.run()?,
+        #[allow(unused_variables)]
+        flags::RustAnalyzerCmd::Regloc(cmd) => {
+            cfg_if! {
+                if #[cfg(feature = "regloc")] {
+                    cmd.run()?;
+                } else {
+                    Err("rust-analyzer was not built with the `regloc` feature.")?;
+                }
+            }
+        }
     }
     Ok(())
 }

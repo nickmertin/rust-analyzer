@@ -113,6 +113,11 @@ xflags::xflags! {
         cmd scip {
             required path: PathBuf
         }
+
+        cmd regloc {
+            required path: PathBuf
+            required regression: String
+        }
     }
 }
 
@@ -142,6 +147,7 @@ pub enum RustAnalyzerCmd {
     ProcMacro(ProcMacro),
     Lsif(Lsif),
     Scip(Scip),
+    Regloc(Regloc),
 }
 
 #[derive(Debug)]
@@ -211,6 +217,12 @@ pub struct Lsif {
 #[derive(Debug)]
 pub struct Scip {
     pub path: PathBuf,
+}
+
+#[derive(Debug)]
+pub struct Regloc {
+    pub path: PathBuf,
+    pub regression: String,
 }
 
 impl RustAnalyzer {

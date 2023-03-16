@@ -98,6 +98,12 @@ fn all_modules(db: &dyn HirDatabase) -> Vec<Module> {
     modules
 }
 
+// #[cfg(feature = "parallelize")]
+// struct ParallelBuilder<'a> {
+//     analysis: &'a Analysis,
+//     db: &'a RootDatabase,
+// }
+
 impl StaticIndex<'_> {
     fn add_file(&mut self, file_id: FileId) {
         let current_crate = crates_for(self.db, file_id).pop().map(Into::into);
@@ -182,7 +188,120 @@ impl StaticIndex<'_> {
         self.files.push(result);
     }
 
+    // #[cfg(feature = "parallelize")]
+    // async fn add_file_par(analysis: &Analysis, db: &RootDatabase, file_id: FileId) {
+    //     let current_crate = crates_for(db, file_id).pop().map(Into::into);
+    //     let folds = analysis.folding_ranges(file_id).unwrap();
+    //     let inlay_hints = analysis
+    //         .inlay_hints(
+    //             &InlayHintsConfig {
+    //                 render_colons: true,
+    //                 discriminant_hints: crate::DiscriminantHints::Fieldless,
+    //                 type_hints: true,
+    //                 parameter_hints: true,
+    //                 chaining_hints: true,
+    //                 closure_return_type_hints: crate::ClosureReturnTypeHints::WithBlock,
+    //                 lifetime_elision_hints: crate::LifetimeElisionHints::Never,
+    //                 adjustment_hints: crate::AdjustmentHints::Never,
+    //                 adjustment_hints_mode: AdjustmentHintsMode::Prefix,
+    //                 adjustment_hints_hide_outside_unsafe: false,
+    //                 hide_named_constructor_hints: false,
+    //                 hide_closure_initialization_hints: false,
+    //                 param_names_for_lifetime_elision_hints: false,
+    //                 binding_mode_hints: false,
+    //                 max_length: Some(25),
+    //                 closing_brace_hints_min_lines: Some(25),
+    //             },
+    //             file_id,
+    //             None,
+    //         )
+    //         .unwrap();
+    //     // hovers
+    //     let sema = hir::Semantics::new(db);
+    //     let tokens_or_nodes = sema.parse(file_id).syntax().clone();
+    //     let tokens = tokens_or_nodes.descendants_with_tokens().filter_map(|x| match x {
+    //         syntax::NodeOrToken::Node(_) => None,
+    //         syntax::NodeOrToken::Token(x) => Some(x),
+    //     });
+    //     let hover_config = HoverConfig {
+    //         links_in_hover: true,
+    //         documentation: true,
+    //         keywords: true,
+    //         format: crate::HoverDocFormat::Markdown,
+    //         interpret_tests: false,
+    //     };
+    //     let tokens = tokens.filter(|token| {
+    //         matches!(
+    //             token.kind(),
+    //             IDENT | INT_NUMBER | LIFETIME_IDENT | T![self] | T![super] | T![crate] | T![Self]
+    //         )
+    //     });
+    //     let mut result = StaticIndexedFile { file_id, inlay_hints, folds, tokens: vec![] };
+    //     for token in tokens {
+    //         let range = token.text_range();
+    //         let node = token.parent().unwrap();
+    //         let def = match get_definition(&sema, token.clone()) {
+    //             Some(x) => x,
+    //             None => continue,
+    //         };
+    //         let id = if let Some(x) = self.def_map.get(&def) {
+    //             *x
+    //         } else {
+    //             let x = self.tokens.insert(TokenStaticData {
+    //                 hover: hover_for_definition(&sema, file_id, def, &node, &hover_config),
+    //                 definition: def
+    //                     .try_to_nav(self.db)
+    //                     .map(|x| FileRange { file_id: x.file_id, range: x.focus_or_full_range() }),
+    //                 references: vec![],
+    //                 moniker: current_crate.and_then(|cc| def_to_moniker(self.db, def, cc)),
+    //             });
+    //             self.def_map.insert(def, x);
+    //             x
+    //         };
+    //         let token = self.tokens.get_mut(id).unwrap();
+    //         token.references.push(ReferenceData {
+    //             range: FileRange { range, file_id },
+    //             is_definition: match def.try_to_nav(self.db) {
+    //                 Some(x) => x.file_id == file_id && x.focus_or_full_range() == range,
+    //                 None => false,
+    //             },
+    //         });
+    //         result.tokens.push((range, id));
+    //     }
+    //     self.files.push(result);
+    // }
+
     pub fn compute(analysis: &Analysis) -> StaticIndex<'_> {
+        let db = &*analysis.db;
+        let work = all_modules(db).into_iter().filter(|module| {
+            let file_id = module.definition_source(db).file_id.original_file(db);
+            let source_root = db.file_source_root(file_id);
+            let source_root = db.source_root(source_root);
+            !source_root.is_library
+        });
+        let mut this = StaticIndex {
+            files: vec![],
+            tokens: Default::default(),
+            analysis,
+            db,
+            def_map: Default::default(),
+        };
+        let mut visited_files = FxHashSet::default();
+        for module in work {
+            let file_id = module.definition_source(db).file_id.original_file(db);
+            if visited_files.contains(&file_id) {
+                continue;
+            }
+            this.add_file(file_id);
+            // mark the file
+            visited_files.insert(file_id);
+        }
+        this
+    }
+
+    #[cfg(feature = "parallelize")]
+    pub async fn compute_par(analysis: &Analysis) -> StaticIndex<'_> {
+        // let (sender, receiver) = futures::channel::mpsc::channel(100);
         let db = &*analysis.db;
         let work = all_modules(db).into_iter().filter(|module| {
             let file_id = module.definition_source(db).file_id.original_file(db);

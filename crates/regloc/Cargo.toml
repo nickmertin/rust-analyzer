@@ -1,0 +1,17 @@
+[package]
+name = "regloc"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.69"
+hir.workspace = true
+hir-def.workspace = true
+hir-ty.workspace = true
+ide-db = { workspace = true, features = ["regloc"] }
+im = "15.1.0"
+replace_with = "0.1.7"
+syntax.workspace = true
+tokio = { version = "1.26.0", features = ["rt-multi-thread", "fs"] }

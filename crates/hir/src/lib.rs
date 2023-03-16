@@ -40,7 +40,7 @@ use base_db::{CrateDisplayName, CrateId, CrateOrigin, Edition, FileId, ProcMacro
 use either::Either;
 use hir_def::{
     adt::VariantData,
-    body::{BodyDiagnostic, SyntheticSyntax},
+    body::{Body, BodyDiagnostic, SyntheticSyntax},
     expr::{BindingAnnotation, BindingId, ExprOrPatId, LabelId, Pat},
     generics::{LifetimeParamData, TypeOrConstParamData, TypeParamProvenance},
     item_tree::ItemTreeNode,
@@ -1684,6 +1684,10 @@ impl Function {
 
     pub fn name(self, db: &dyn HirDatabase) -> Name {
         db.function_data(self.id).name.clone()
+    }
+
+    pub fn id(self) -> FunctionId {
+        self.id
     }
 
     /// Get this function's return type
